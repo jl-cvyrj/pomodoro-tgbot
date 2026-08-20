@@ -23,11 +23,21 @@ import java.util.List;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class PomodoroBot extends SpringWebhookBot {
 
+    public static final String TIMER_WORKING_STARTED = "TIMER_WORKING_STARTED";
+    public static final String TIMER_BREAK_STARTED = "TIMER_BREAK_STARTED";
+    public static final String TIMER_BIG_BREAK_STARTED = "TIMER_BIG_BREAK_STARTED";
+    public static final String TIMER_BIG_BREAK_FINISHED = "TIMER_BIG_BREAK_FINISHED";
+
+    public static final String MESSAGE_AFTER_BREAK_STARTED = "Hey! You are doing great! Now have some rest tiger";
+    public static final String MESSAGE_WORKING_STARTED = "So now it's time to work! Go on bro";
+    public static final String MESSAGE_BIG_BREAK_STARTED = "Are you nuts?? Now have a deserved break!";
+    public static final String MESSAGE_BIG_BREAK_FINISHED = "Would you like to start another cycle of crazy work?";
+
     String botPath;
     String botUsername;
     String botToken;
 
-    PomodoroTimer pomodoroTimer = new PomodoroTimer();
+    PomodoroTimer pomodoroTimer;
 
     public PomodoroBot(SetWebhook setWebhook, String botPath, String botUsername, String botToken) {
         super(setWebhook, botToken);
@@ -43,32 +53,22 @@ public class PomodoroBot extends SpringWebhookBot {
             Long chatId = update.getMessage().getChatId();
             log.info("Received message from {}: {}", chatId, messageText);
 
-            SendMessage reply = new SendMessage();
-            reply.setChatId(chatId);
-            boolean needToSendReply = true;
-
             switch (messageText) {
                 case "/start":
-                    reply.setText("""
+                    sendTelegramMessage(chatId,"""
                         Hi! I'm Pomodoro bot!
                         I'm here to help you to organize your time.
                         Please, choose the option below.
                         """);
                     break;
 
-                case "/start the default timer":
-                    pomodoroTimer.startTimer();
-                    reply.setText("Timer is started!");
+                case "/start_the_default_timer":
+                    sendTelegramMessage(chatId, "Pomodoro Timer is started!");
+                    pomodoroTimer.startNewTimer(chatId);
                     break;
 
-                case "/see timer values":
-                    int WorkTimeMin = pomodoroTimer.getWorkTime() / 60000;
-                    int WorkTimeSec = pomodoroTimer.getWorkTime() % 60000;
-                    int BreakTimeMin = pomodoroTimer.getBreakTime() / 60000;
-                    int BreakTimeSec = pomodoroTimer.getBreakTime() % 60000;
-                    int BigBreakTimeMin = pomodoroTimer.getBigBreakTime() / 60000;
-                    int BigBreakTimeSec = pomodoroTimer.getBigBreakTime() % 60000;
-                    reply.setText("""
+                case "/see_timer_values":
+                    sendTelegramMessage(chatId, """
                             Here are current timer values:
                             Working time is %d m %d s.
                             Break time is %d m %d s.
@@ -77,22 +77,13 @@ public class PomodoroBot extends SpringWebhookBot {
                             BreakTimeSec, BigBreakTimeMin, BigBreakTimeSec));
                     break;
 
-                case "/change default timer values":
-                    needToSendReply = false;
+                case "/change_default_timer_values":
                     changeTimerValues(chatId);
                     break;
 
                 default:
-                    reply.setText("Unknown command. Please, sent /start");
+                    sendTelegramMessage(chatId,"Unknown command. Please, sent /start");
                     break;
-            }
-
-            if (needToSendReply) {
-                try {
-                    execute(reply);
-                } catch (Exception e) {
-                    log.error("Error sending message: ", e);
-                }
             }
         }
         if (update.hasCallbackQuery()) {
@@ -106,22 +97,17 @@ public class PomodoroBot extends SpringWebhookBot {
 
             switch (callbackData) {
                 case "WORKING_TIME_BUTTON":
-                    message.setText("Enter new working time in minutes:");
+                    sendTelegramMessage(chatId, "Enter new working time in minutes:");
                     break;
                 case "BREAK_TIME_BUTTON":
-                    message.setText("Enter new break time in minutes:");
+                    sendTelegramMessage(chatId, "Enter new break time in minutes:");
                     break;
                 case "BIGBREAK_TIME_BUTTON":
-                    message.setText("Enter new big break time in minutes:");
+                    sendTelegramMessage(chatId, "Enter new big break time in minutes:");
                     break;
                 default:
-                    message.setText("Unknown callback");
+                    sendTelegramMessage(chatId, "Unknown callback");
                     break;
-            }
-            try {
-                execute(message);
-            } catch (Exception e) {
-                log.error("Error sending message: ", e);
             }
         }
         return null;
@@ -161,6 +147,34 @@ public class PomodoroBot extends SpringWebhookBot {
             execute(message);
         } catch (Exception e) {
             log.error("Error sending message: ", e);
+        }
+    }
+
+    public void sendTelegramMessage(long chatId, String messageText) {
+        SendMessage message = new SendMessage();
+        message.setChatId(chatId);
+        message.setText(messageText);
+        try {
+            execute(message);
+        } catch (Exception e) {
+            log.error("Error sending message: ", e);
+        }
+    }
+
+    public void handleTimerEvent(long chatId, String eventMessage) {
+        switch (eventMessage) {
+            case TIMER_WORKING_STARTED:
+                sendTelegramMessage(chatId, MESSAGE_AFTER_BREAK_STARTED);
+                break;
+            case TIMER_BREAK_STARTED:
+                sendTelegramMessage(chatId, MESSAGE_WORKING_STARTED);
+                break;
+            case TIMER_BIG_BREAK_STARTED:
+                sendTelegramMessage(chatId, MESSAGE_BIG_BREAK_STARTED);
+                break;
+            case TIMER_BIG_BREAK_FINISHED:
+                sendTelegramMessage(chatId, MESSAGE_BIG_BREAK_FINISHED);
+                break;
         }
     }
 }
