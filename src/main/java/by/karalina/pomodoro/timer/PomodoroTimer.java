@@ -1,6 +1,7 @@
 package by.karalina.pomodoro.timer;
 
 import by.karalina.pomodoro.bot.PomodoroBot;
+import by.karalina.pomodoro.entity.User;
 import by.karalina.pomodoro.entity.UserSession;
 import by.karalina.pomodoro.entity.UserSessionStatus;
 import lombok.AccessLevel;
@@ -36,15 +37,18 @@ public class PomodoroTimer {
         ticker.scheduleAtFixedRate(this::tickAllSessions, 0, 1, TimeUnit.SECONDS);
     }
 
-    public UserSession getUserSession(long chatId) {
-        return sessions.get(chatId);
-    }
-
-    public void startNewTimer(long chatId) {
+    public void startNewTimer(User user) {
         UserSession userSession = new UserSession();
+        long chatId = user.getChatId();
         userSession.setChatId(chatId);
         userSession.setSessionStatus(UserSessionStatus.WORKING);
-        userSession.setCurrentLeftTime(userSession.getWorkingTime());
+        int workingTime = user.getWorkingTime();
+
+        userSession.setWorkingTime(user.getWorkingTime());
+        userSession.setBreakTime(user.getBreakTime());
+        userSession.setBigBreakTime(user.getBigBreakTime());
+
+        userSession.setCurrentLeftTime(workingTime);
         userSession.setCurrentCycle(1);
 
         sessions.put(chatId, userSession);
@@ -61,17 +65,20 @@ public class PomodoroTimer {
                         if (userSession.getCurrentCycle() == 4) {
                             pomodoroBot.handleTimerEvent(userSession.getChatId(), TIMER_BIG_BREAK_STARTED);
                             userSession.setSessionStatus(UserSessionStatus.BIG_BREAK);
-                            userSession.setCurrentLeftTime(userSession.getBigBreakTime());
+                            int bigBreakTime = userSession.getBigBreakTime();
+                            userSession.setCurrentLeftTime(bigBreakTime);
                         } else {
                             pomodoroBot.handleTimerEvent(userSession.getChatId(), TIMER_BREAK_STARTED);
                             userSession.setSessionStatus(UserSessionStatus.BREAK);
-                            userSession.setCurrentLeftTime(userSession.getBreakTime());
+                            int breakTime = userSession.getBreakTime();
+                            userSession.setCurrentLeftTime(breakTime);
                         }
                     }
                     else if (userSession.getSessionStatus() == UserSessionStatus.BREAK) {
                         pomodoroBot.handleTimerEvent(userSession.getChatId(), TIMER_WORKING_STARTED);
                         userSession.setSessionStatus(UserSessionStatus.WORKING);
-                        userSession.setCurrentLeftTime(userSession.getWorkingTime());
+                        int workingTime = userSession.getWorkingTime();
+                        userSession.setCurrentLeftTime(workingTime);
                         int cycle = userSession.getCurrentCycle();
                         userSession.setCurrentCycle(cycle + 1);
                     }

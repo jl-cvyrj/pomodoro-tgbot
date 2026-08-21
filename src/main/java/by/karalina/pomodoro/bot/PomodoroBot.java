@@ -1,5 +1,6 @@
 package by.karalina.pomodoro.bot;
 
+import by.karalina.pomodoro.entity.User;
 import by.karalina.pomodoro.timer.PomodoroTimer;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -16,6 +17,7 @@ import org.telegram.telegrambots.starter.SpringWebhookBot;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Getter
 @Setter
@@ -28,15 +30,16 @@ public class PomodoroBot extends SpringWebhookBot {
     public static final String TIMER_BIG_BREAK_STARTED = "TIMER_BIG_BREAK_STARTED";
     public static final String TIMER_BIG_BREAK_FINISHED = "TIMER_BIG_BREAK_FINISHED";
 
-    public static final String MESSAGE_AFTER_BREAK_STARTED = "Hey! You are doing great! Now have some rest tiger";
     public static final String MESSAGE_WORKING_STARTED = "So now it's time to work! Go on bro";
+    public static final String MESSAGE_BREAK_STARTED = "Hey! You are doing great! Now have some rest tiger";
     public static final String MESSAGE_BIG_BREAK_STARTED = "Are you nuts?? Now have a deserved break!";
     public static final String MESSAGE_BIG_BREAK_FINISHED = "Would you like to start another cycle of crazy work?";
+
+    final ConcurrentHashMap<Long, User> users = new ConcurrentHashMap<>();
 
     String botPath;
     String botUsername;
     String botToken;
-
     PomodoroTimer pomodoroTimer;
 
     public PomodoroBot(SetWebhook setWebhook, String botPath, String botUsername, String botToken) {
@@ -46,13 +49,22 @@ public class PomodoroBot extends SpringWebhookBot {
         this.botToken = botToken;
     }
 
+    public User getUser(long chatId) {
+        if (users.get(chatId) == null) {
+           User user = new User();
+           user.setChatId(chatId);
+           users.put(chatId, user);
+        }
+        return users.get(chatId);
+    }
+
     @Override
     public BotApiMethod<?> onWebhookUpdateReceived(Update update) {
         if (update.hasMessage() && update.getMessage().hasText()) {
             String messageText = update.getMessage().getText();
             Long chatId = update.getMessage().getChatId();
             log.info("Received message from {}: {}", chatId, messageText);
-
+            User user;
             switch (messageText) {
                 case "/start":
                     sendTelegramMessage(chatId,"""
@@ -63,11 +75,19 @@ public class PomodoroBot extends SpringWebhookBot {
                     break;
 
                 case "/start_the_default_timer":
+                    user = getUser(chatId);
                     sendTelegramMessage(chatId, "Pomodoro Timer is started!");
-                    pomodoroTimer.startNewTimer(chatId);
+                    pomodoroTimer.startNewTimer(user);
                     break;
 
                 case "/see_timer_values":
+                    user = getUser(chatId);
+                    int WorkTimeMin = user.getWorkingTime() / 60;
+                    int WorkTimeSec = user.getWorkingTime() % 60;
+                    int BreakTimeMin = user.getBreakTime() / 60;
+                    int BreakTimeSec = user.getBreakTime() % 60;
+                    int BigBreakTimeMin = user.getBigBreakTime() / 60;
+                    int BigBreakTimeSec = user.getBigBreakTime() % 60;
                     sendTelegramMessage(chatId, """
                             Here are current timer values:
                             Working time is %d m %d s.
@@ -164,10 +184,10 @@ public class PomodoroBot extends SpringWebhookBot {
     public void handleTimerEvent(long chatId, String eventMessage) {
         switch (eventMessage) {
             case TIMER_WORKING_STARTED:
-                sendTelegramMessage(chatId, MESSAGE_AFTER_BREAK_STARTED);
+                sendTelegramMessage(chatId, MESSAGE_WORKING_STARTED);
                 break;
             case TIMER_BREAK_STARTED:
-                sendTelegramMessage(chatId, MESSAGE_WORKING_STARTED);
+                sendTelegramMessage(chatId, MESSAGE_BREAK_STARTED);
                 break;
             case TIMER_BIG_BREAK_STARTED:
                 sendTelegramMessage(chatId, MESSAGE_BIG_BREAK_STARTED);

@@ -1,6 +1,7 @@
 package by.karalina.pomodoro.config;
 
 import by.karalina.pomodoro.bot.PomodoroBot;
+import by.karalina.pomodoro.timer.PomodoroTimer;
 import lombok.AllArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -18,7 +19,13 @@ public class BotConfig {
     }
 
     @Bean
-    public PomodoroBot springWebhookBot(SetWebhook setWebhook) {
-        return new PomodoroBot(setWebhook, telegramConfig.getWebhookPath(), telegramConfig.getBotUsername(), telegramConfig.getBotToken());
+    public PomodoroBot springWebhookBot(SetWebhook setWebhook, PomodoroTimer pomodoroTimer) {
+        PomodoroBot bot = new PomodoroBot(setWebhook,
+                telegramConfig.getWebhookPath(),
+                telegramConfig.getBotUsername(),
+                telegramConfig.getBotToken()
+        );
+        bot.setPomodoroTimer(pomodoroTimer);
+        return bot;
     }
 }

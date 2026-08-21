@@ -7,9 +7,9 @@ public class UserSession {
 
     long chatId;
     UserSessionStatus sessionStatus;
-    int workingTime = 1500;
-    int breakTime = 300;
-    int bigBreakTime = 1200;
+    int workingTime;
+    int breakTime;
+    int bigBreakTime;
     int currentLeftTime;
     int currentCycle;
 }
