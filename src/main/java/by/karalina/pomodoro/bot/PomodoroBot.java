@@ -8,11 +8,16 @@ import lombok.Setter;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.log4j.Log4j2;
 import org.telegram.telegrambots.meta.api.methods.BotApiMethod;
+import org.telegram.telegrambots.meta.api.methods.commands.SetMyCommands;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.updates.SetWebhook;
 import org.telegram.telegrambots.meta.api.objects.Update;
+import org.telegram.telegrambots.meta.api.objects.commands.BotCommand;
+import org.telegram.telegrambots.meta.api.objects.commands.scope.BotCommandScope;
+import org.telegram.telegrambots.meta.api.objects.commands.scope.BotCommandScopeDefault;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
+import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.starter.SpringWebhookBot;
 
 import java.util.ArrayList;
@@ -36,17 +41,22 @@ public class PomodoroBot extends SpringWebhookBot {
     public static final String MESSAGE_BIG_BREAK_FINISHED = "Would you like to start another cycle of crazy work?";
 
     final ConcurrentHashMap<Long, User> users = new ConcurrentHashMap<>();
+    final PomodoroTimer pomodoroTimer;
+    final List<BotCommand> botMenu;
 
     String botPath;
     String botUsername;
     String botToken;
-    PomodoroTimer pomodoroTimer;
 
-    public PomodoroBot(SetWebhook setWebhook, String botPath, String botUsername, String botToken) {
+    public PomodoroBot(SetWebhook setWebhook, PomodoroTimer pomodoroTimer, List<BotCommand> botMenu, String botPath, String botUsername, String botToken) {
         super(setWebhook, botToken);
+        this.pomodoroTimer = pomodoroTimer;
+        this.botMenu = botMenu;
         this.botPath = botPath;
         this.botUsername = botUsername;
         this.botToken = botToken;
+
+        registerMenu(botMenu);
     }
 
     public User getUser(long chatId) {
@@ -56,6 +66,15 @@ public class PomodoroBot extends SpringWebhookBot {
            users.put(chatId, user);
         }
         return users.get(chatId);
+    }
+
+    public void registerMenu(List<BotCommand> menu) {
+        try {
+            this.execute(new SetMyCommands(menu, new BotCommandScopeDefault(), null));
+        }
+        catch (TelegramApiException e) {
+            log.error("Error setting bot menu: {}", e.getMessage());
+        }
     }
 
     @Override
@@ -70,11 +89,12 @@ public class PomodoroBot extends SpringWebhookBot {
                     sendTelegramMessage(chatId,"""
                         Hi! I'm Pomodoro bot!
                         I'm here to help you to organize your time.
-                        Please, choose the option below.
+                        You can check the list of the options in menu below.
+                        To get more information about all my commands, send /help
                         """);
                     break;
 
-                case "/start_the_default_timer":
+                case "/start_timer":
                     user = getUser(chatId);
                     sendTelegramMessage(chatId, "Pomodoro Timer is started!");
                     pomodoroTimer.startNewTimer(user);
@@ -97,7 +117,11 @@ public class PomodoroBot extends SpringWebhookBot {
                             BreakTimeSec, BigBreakTimeMin, BigBreakTimeSec));
                     break;
 
-                case "/change_default_timer_values":
+                case "/change_timer_values":
+                    changeTimerValues(chatId);
+                    break;
+
+                case "/help":
                     changeTimerValues(chatId);
                     break;
 
